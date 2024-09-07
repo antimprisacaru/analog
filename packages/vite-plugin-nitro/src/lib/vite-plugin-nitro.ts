@@ -136,6 +136,10 @@ export function nitro(options?: Options, nitroOptions?: NitroConfig): Plugin[] {
           nitroConfig = withCloudflareOutput(nitroConfig);
         }
 
+        if (isAwsAmplifyPreset(buildPreset)) {
+          nitroConfig = withAwsAmplifyOutput(nitroConfig);
+        }
+
         if (!ssrBuild && !isTest) {
           // store the client output path for the SSR build config
           clientOutputPath = resolve(
@@ -231,19 +235,19 @@ export function nitro(options?: Options, nitroOptions?: NitroConfig): Plugin[] {
                * as it won't resolve the renderer.ts file correctly in node.
                */
               import { eventHandler } from 'h3';
-              
+
               // @ts-ignore
               import renderer from '${ssrEntry}';
               // @ts-ignore
               const template = \`${indexContents}\`;
-              
+
               export default eventHandler(async (event) => {
                 const html = await renderer(event.node.req.url, template, {
                   req: event.node.req,
                   res: event.node.res,
                 });
                 return html;
-              });                    
+              });
               `
               );
             }
@@ -370,5 +374,19 @@ const withCloudflareOutput = (nitroConfig: NitroConfig | undefined) => ({
   output: {
     ...nitroConfig?.output,
     serverDir: '{{ output.publicDir }}/_worker.js',
+  },
+});
+
+const isAwsAmplifyPreset = (buildPreset: string | undefined) =>
+  process.env['AWS_AMPLIFY'] ||
+  (buildPreset && buildPreset.toLowerCase().includes('AWS_AMPLIFY'));
+
+const withAwsAmplifyOutput = (nitroConfig: NitroConfig | undefined) => ({
+  ...nitroConfig,
+  output: {
+    ...nitroConfig?.output,
+    dir: '{{ rootDir }}/.amplify-hosting',
+    serverDir: '{{ output.dir }}/compute/default',
+    publicDir: '{{ output.dir }}/static{{ baseURL }}',
   },
 });
